@@ -1,0 +1,438 @@
+/* ============================================================================
+   DESIGN.CSS — Footprint BTCUSDT · Order Flow Pro
+   Fuente única de verdad para tokens de diseño: colores, tipografía, medidas,
+   sombras, radios, animaciones globales y estados semánticos.
+
+   No contiene layout ni media queries.
+
+   Cobertura de tokens:
+   - Superficies, texto, semánticos base (verde/rojo/amarillo/cian/azul).
+   - Heatmap (canales RGB).
+   - Tipografía y medidas estructurales.
+   - Grid del footprint (incluye --col-level para Δ nivel).
+   - Termómetro (3 barras: acumulada, instantánea, zona).
+   - Estados de muro: stable / growing / shrinking / vanished.
+   - Absorción sostenida (--abs-sustained-*).
+   - Percentiles de imbalance (p80 / p95 / p99).
+   - Panel de manipulación (--manip-*).
+   - Pills editables (--pill-edit-*).
+   - Timeline extendido (--tl-*).
+   - Animaciones: pulse, flashBuy/Sell, spin, toastIn, warnPulse,
+     wallGrow, wallVanish, manipIn, absSustained, spoofFlash.
+   - Equivalencias completas en tema claro.
+   - Refuerzos en prefers-contrast y prefers-reduced-motion.
+   ============================================================================ */
+
+/* ============ 1. TOKENS — TEMA OSCURO (default) ============ */
+:root{
+  /* --- Superficies --- */
+  --bg:            #000000;
+  --bg-soft:       #050608;
+  --surface:       #0a0b0e;
+  --surface-2:     #12141a;
+  --surface-3:     #1a1d26;
+  --surface-4:     #22252f;
+  --border:        #1c1f28;
+  --border-2:      #2e323f;
+
+  /* --- Texto --- */
+  --text:          #e6e8ee;
+  --text-dim:      #8a90a0;
+  --text-mute:     #5c6070;
+  --text-faint:    #3a3e4a;
+
+  /* --- Semánticos base --- */
+  --green:         #16c784;
+  --green-soft:    rgba(22,199,132,.14);
+  --green-strong:  #22e896;
+  --red:           #ea3943;
+  --red-soft:      rgba(234,57,67,.14);
+  --red-strong:    #ff4d5a;
+  --yellow:        #f0b90b;
+  --yellow-soft:   rgba(240,185,11,.14);
+  --yellow-strong: #ffcf3a;
+  --cyan:          #22d3ee;
+  --cyan-soft:     rgba(34,211,238,.12);
+  --cyan-strong:   #67e8f9;
+  --blue:          #3b82f6;
+  --blue-soft:     rgba(59,130,246,.14);
+  --orange:        #f59e0b;
+  --orange-soft:   rgba(245,158,11,.14);
+
+  /* --- Heatmap (canales RGB para usar en rgba()) --- */
+  --heat-buy:      22, 199, 132;
+  --heat-sell:     234, 57, 67;
+
+  /* --- Tipografía --- */
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono",
+          Consolas, "Liberation Mono", monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+          Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* --- Medidas estructurales --- */
+  --radius:        10px;
+  --radius-sm:     6px;
+  --shadow:        0 1px 0 rgba(255,255,255,.03), 0 8px 24px rgba(0,0,0,.4);
+
+  /* --- Grid del footprint --- */
+  --col-imb:       52px;
+  --col-num:       62px;
+  --col-delta:     62px;
+  --col-price:     82px;
+  --col-bar:       46px;
+  --col-level:     74px;   /* NUEVO: columna Δ nivel */
+  --row-h:         24px;
+
+  /* --- Termómetro --- */
+  --thermo-w:       88px;
+  --thermo-track-w: 18px;
+
+  /* ====== NUEVO: estados de muro ====== */
+  --wall-stable:         var(--cyan);
+  --wall-stable-soft:    var(--cyan-soft);
+  --wall-stable-glow:    rgba(34,211,238,.35);
+
+  --wall-growing:        var(--yellow);
+  --wall-growing-soft:   var(--yellow-soft);
+  --wall-growing-glow:   rgba(240,185,11,.45);
+
+  --wall-shrinking:      var(--text-mute);
+  --wall-shrinking-soft: rgba(92,96,112,.18);
+
+  --wall-vanished:       var(--red);
+  --wall-vanished-soft:  var(--red-soft);
+  --wall-vanished-glow:  rgba(234,57,67,.35);
+
+  /* ====== NUEVO: absorción sostenida ====== */
+  --abs-sustained-border: var(--yellow);
+  --abs-sustained-glow:   rgba(240,185,11,.35);
+  --abs-sustained-bg:     rgba(240,185,11,.08);
+
+  /* ====== NUEVO: percentiles de imbalance ====== */
+  --imb-p80:        var(--yellow);
+  --imb-p80-soft:   rgba(240,185,11,.10);
+  --imb-p95:        var(--orange);
+  --imb-p95-soft:   rgba(245,158,11,.12);
+  --imb-p99:        var(--red);
+  --imb-p99-soft:   rgba(234,57,67,.14);
+
+  /* ====== NUEVO: panel de manipulación ====== */
+  --manip-bg:               var(--surface);
+  --manip-border:           var(--border);
+  --manip-absorption-bid:   var(--green);
+  --manip-absorption-ask:   var(--red);
+  --manip-spoof:            var(--yellow);
+  --manip-support:          var(--green);
+  --manip-resistance:       var(--red);
+  --manip-badge-bg:         var(--surface-3);
+  --manip-badge-text:       var(--text-dim);
+  --manip-metric-text:      var(--text-dim);
+  --manip-metric-value:     var(--text);
+
+  /* ====== NUEVO: pills editables ====== */
+  --pill-edit-bg:           var(--surface-2);
+  --pill-edit-border:       var(--border);
+  --pill-edit-border-focus: var(--blue);
+  --pill-edit-text:         var(--text);
+  --pill-edit-label:        var(--text-mute);
+  --pill-edit-suffix:       var(--text-mute);
+  --pill-edit-auto-bg:      var(--cyan-soft);
+  --pill-edit-auto-border:  var(--cyan);
+  --pill-edit-auto-text:    var(--cyan);
+  --pill-edit-rel-bg:       var(--yellow-soft);
+  --pill-edit-rel-border:   var(--yellow);
+  --pill-edit-rel-text:     var(--yellow);
+
+  /* ====== NUEVO: termómetro de zona ====== */
+  --thermo-zone-track:      var(--surface-2);
+  --thermo-zone-fill-pos:   var(--cyan);
+  --thermo-zone-fill-neg:   var(--red);
+  --thermo-zone-abs:        var(--yellow);
+  --thermo-zone-glow:       rgba(240,185,11,.5);
+
+  /* ====== NUEVO: timeline extendido ====== */
+  --tl-volume:          var(--cyan);
+  --tl-stack:           var(--green);
+  --tl-signal:          var(--blue);
+  --tl-absorb:          var(--yellow);
+  --tl-wall-formed:     var(--yellow);
+  --tl-wall-vanished:   var(--red);
+  --tl-absorption-conf: var(--green);
+  --tl-spoof:           var(--yellow);
+  --tl-outline-bg:      var(--bg);
+}
+
+/* ============ 2. TEMA CLARO ============ */
+[data-theme="light"]{
+  /* --- Superficies --- */
+  --bg:            #f6f7f9;
+  --bg-soft:       #eef0f4;
+  --surface:       #ffffff;
+  --surface-2:     #f1f3f7;
+  --surface-3:     #e6e9f0;
+  --surface-4:     #d9dde6;
+  --border:        #e0e3ea;
+  --border-2:      #cfd4de;
+
+  /* --- Texto --- */
+  --text:          #0f1218;
+  --text-dim:      #4a5060;
+  --text-mute:     #7a8090;
+  --text-faint:    #b0b6c2;
+
+  /* --- Semánticos --- */
+  --green:         #059669;
+  --green-soft:    rgba(5,150,105,.12);
+  --green-strong:  #047857;
+  --red:           #dc2626;
+  --red-soft:      rgba(220,38,38,.12);
+  --red-strong:    #b91c1c;
+  --yellow:        #d97706;
+  --yellow-soft:   rgba(217,119,6,.12);
+  --yellow-strong: #b45309;
+  --cyan:          #0891b2;
+  --cyan-soft:     rgba(8,145,178,.12);
+  --cyan-strong:   #0e7490;
+  --blue:          #2563eb;
+  --blue-soft:     rgba(37,99,235,.12);
+  --orange:        #c2410c;
+  --orange-soft:   rgba(194,65,12,.12);
+
+  /* --- Heatmap --- */
+  --heat-buy:      5, 150, 105;
+  --heat-sell:     220, 38, 38;
+
+  /* --- Sombra más sutil en tema claro --- */
+  --shadow:        0 1px 0 rgba(0,0,0,.03), 0 6px 20px rgba(0,0,0,.06);
+
+  /* ====== Estados de muro ====== */
+  --wall-stable:         var(--cyan);
+  --wall-stable-soft:    var(--cyan-soft);
+  --wall-stable-glow:    rgba(8,145,178,.28);
+
+  --wall-growing:        var(--yellow);
+  --wall-growing-soft:   var(--yellow-soft);
+  --wall-growing-glow:   rgba(217,119,6,.32);
+
+  --wall-shrinking:      var(--text-mute);
+  --wall-shrinking-soft: rgba(122,128,144,.18);
+
+  --wall-vanished:       var(--red);
+  --wall-vanished-soft:  var(--red-soft);
+  --wall-vanished-glow:  rgba(220,38,38,.28);
+
+  /* ====== Absorción sostenida ====== */
+  --abs-sustained-border: var(--yellow);
+  --abs-sustained-glow:   rgba(217,119,6,.28);
+  --abs-sustained-bg:     rgba(217,119,6,.08);
+
+  /* ====== Percentiles ====== */
+  --imb-p80:        var(--yellow);
+  --imb-p80-soft:   rgba(217,119,6,.10);
+  --imb-p95:        var(--orange);
+  --imb-p95-soft:   rgba(194,65,12,.12);
+  --imb-p99:        var(--red);
+  --imb-p99-soft:   rgba(220,38,38,.14);
+
+  /* ====== Panel de manipulación ====== */
+  --manip-bg:               var(--surface);
+  --manip-border:           var(--border);
+  --manip-absorption-bid:   var(--green);
+  --manip-absorption-ask:   var(--red);
+  --manip-spoof:            var(--yellow);
+  --manip-support:          var(--green);
+  --manip-resistance:       var(--red);
+  --manip-badge-bg:         var(--surface-3);
+  --manip-badge-text:       var(--text-dim);
+  --manip-metric-text:      var(--text-dim);
+  --manip-metric-value:     var(--text);
+
+  /* ====== Pills editables ====== */
+  --pill-edit-bg:           var(--surface-2);
+  --pill-edit-border:       var(--border-2);
+  --pill-edit-border-focus: var(--blue);
+  --pill-edit-text:         var(--text);
+  --pill-edit-label:        var(--text-mute);
+  --pill-edit-suffix:       var(--text-mute);
+  --pill-edit-auto-bg:      var(--cyan-soft);
+  --pill-edit-auto-border:  var(--cyan);
+  --pill-edit-auto-text:    var(--cyan);
+  --pill-edit-rel-bg:       var(--yellow-soft);
+  --pill-edit-rel-border:   var(--yellow);
+  --pill-edit-rel-text:     var(--yellow);
+
+  /* ====== Termómetro de zona ====== */
+  --thermo-zone-track:      var(--surface-2);
+  --thermo-zone-fill-pos:   var(--cyan);
+  --thermo-zone-fill-neg:   var(--red);
+  --thermo-zone-abs:        var(--yellow);
+  --thermo-zone-glow:       rgba(217,119,6,.35);
+
+  /* ====== Timeline ====== */
+  --tl-outline-bg:      var(--surface);
+}
+
+/* ============ 3. ANIMACIONES GLOBALES ============ */
+
+/* Punto de conexión EN VIVO pulsante */
+@keyframes pulse{
+  0%, 100%{ box-shadow: 0 0 0 0 rgba(22,199,132,.65); }
+  50%     { box-shadow: 0 0 0 6px rgba(22,199,132,0); }
+}
+
+/* Flash de celda al ganar liquidez (verde o rojo) */
+@keyframes flashBuy{
+  from{ background-color: var(--green-soft); }
+  to  { background-color: transparent; }
+}
+@keyframes flashSell{
+  from{ background-color: var(--red-soft); }
+  to  { background-color: transparent; }
+}
+
+/* Spinner de carga */
+@keyframes spin{
+  to{ transform: rotate(360deg); }
+}
+
+/* Aparición de toast */
+@keyframes toastIn{
+  from{ opacity: 0; transform: translateY(8px); }
+  to  { opacity: 1; transform: none; }
+}
+
+/* Advertencia de absorción en el termómetro */
+@keyframes warnPulse{
+  0%, 100%{ opacity: 1; }
+  50%     { opacity: .55; }
+}
+
+/* NUEVO: crecimiento de muro */
+@keyframes wallGrow{
+  0%, 100%{
+    box-shadow: inset 3px 0 0 var(--wall-growing),
+                inset 0 0 10px var(--wall-growing-glow);
+  }
+  50%{
+    box-shadow: inset 3px 0 0 var(--wall-growing),
+                inset 0 0 16px var(--wall-growing-glow);
+  }
+}
+
+/* NUEVO: desvanecimiento de muro retirado */
+@keyframes wallVanish{
+  0%  { opacity: .55; }
+  50% { opacity: .25; }
+  100%{ opacity: .55; }
+}
+
+/* NUEVO: aparición del panel de manipulación */
+@keyframes manipIn{
+  from{ opacity: 0; transform: translateY(-4px); }
+  to  { opacity: 1; transform: none; }
+}
+
+/* NUEVO: pulso de absorción sostenida */
+@keyframes absSustained{
+  0%, 100%{
+    box-shadow: inset 0 0 0 1px var(--abs-sustained-border),
+                inset 0 0 12px var(--abs-sustained-glow);
+  }
+  50%{
+    box-shadow: inset 0 0 0 1px var(--abs-sustained-border),
+                inset 0 0 18px var(--abs-sustained-glow);
+  }
+}
+
+/* NUEVO: destello de spoof detectado */
+@keyframes spoofFlash{
+  0%  { background-color: var(--yellow-soft); }
+  50% { background-color: rgba(240,185,11,.28); }
+  100%{ background-color: transparent; }
+}
+
+/* ============ 4. ACCESIBILIDAD ============ */
+
+/* Respeta la preferencia de movimiento reducido */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  .dot.live{
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(22,199,132,.25);
+  }
+  .thermo-warn{
+    animation: none;
+  }
+  /* Nuevos estados: sin animación pero mantienen el color */
+  .row.wall-growing > .c-buy,
+  .row.wall-growing > .c-sell{
+    animation: none;
+    opacity: 1;
+  }
+  .row.wall-vanished > .c-buy,
+  .row.wall-vanished > .c-sell{
+    animation: none;
+    opacity: .55;
+  }
+  .row.absorption-sustained > .c-buy,
+  .row.absorption-sustained > .c-sell{
+    animation: none;
+  }
+  .manip-panel{
+    animation: none;
+  }
+}
+
+/* Alto contraste para quienes lo piden */
+@media (prefers-contrast: more){
+  :root{
+    --text-dim:  #a8aebd;
+    --text-mute: #8a90a0;
+    --border:    #3a3e4a;
+    --border-2:  #4a4e5a;
+
+    /* Estados de muro reforzados */
+    --wall-stable-glow:   rgba(34,211,238,.55);
+    --wall-growing-glow:  rgba(240,185,11,.65);
+    --wall-vanished-glow: rgba(234,57,67,.55);
+
+    /* Absorción sostenida reforzada */
+    --abs-sustained-glow: rgba(240,185,11,.55);
+    --abs-sustained-bg:   rgba(240,185,11,.14);
+
+    /* Percentiles reforzados */
+    --imb-p80-soft: rgba(240,185,11,.18);
+    --imb-p95-soft: rgba(245,158,11,.20);
+    --imb-p99-soft: rgba(234,57,67,.22);
+
+    /* Termómetro zona */
+    --thermo-zone-glow: rgba(240,185,11,.65);
+
+    /* Panel manipulación */
+    --manip-metric-text:  var(--text);
+    --manip-badge-text:   var(--text);
+  }
+  [data-theme="light"]{
+    --text-dim:  #2a303a;
+    --text-mute: #4a5060;
+    --border:    #b0b6c2;
+    --border-2:  #8a90a0;
+
+    --wall-stable-glow:   rgba(8,145,178,.45);
+    --wall-growing-glow:  rgba(217,119,6,.55);
+    --wall-vanished-glow: rgba(220,38,38,.45);
+
+    --abs-sustained-glow: rgba(217,119,6,.45);
+    --abs-sustained-bg:   rgba(217,119,6,.14);
+
+    --imb-p80-soft: rgba(217,119,6,.18);
+    --imb-p95-soft: rgba(194,65,12,.20);
+    --imb-p99-soft: rgba(220,38,38,.22);
+
+    --thermo-zone-glow: rgba(217,119,6,.55);
+  }
+}

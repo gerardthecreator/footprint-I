@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#000000" id="metaThemeColor">
+<meta name="description" content="Footprint / Order Flow Pro para Binance Spot. Heatmap por delta, absorción sostenida, stacked imbalances, tracking de muros institucionales, detección de spoofing, termómetro de presión neta por zona, líneas dinámicas de entrada/SL/TP y replay histórico determinista.">
+<title>Footprint BTCUSDT · Order Flow Pro</title>
+
+<link rel="preconnect" href="https://api.binance.com" crossorigin>
+<link rel="preconnect" href="https://data-api.binance.vision" crossorigin>
+<link rel="preconnect" href="https://api-gcp.binance.com" crossorigin>
+
+<link rel="stylesheet" href="design.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="responsive.css">
+
+<script src="script.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- ==========================================================================
+     HEADER — Estado global, métricas clave y configuración activa
+     ========================================================================== -->
+<header id="app-header" role="banner">
+
+  <!-- Fila 1: conexión, símbolo, reloj dual, tema -->
+  <div class="h-row h-row-1">
+    <div class="h-status">
+      <span class="dot" id="connDot" aria-hidden="true"></span>
+      <span id="connLabel" class="h-status-txt">Conectando…</span>
+    </div>
+
+    <h1 class="h-symbol">
+      <span id="symbolLabel">BTCUSDT</span>
+      <small>Footprint</small>
+    </h1>
+
+    <div class="h-clock" aria-live="off">
+      <span class="h-clock-local" id="clockLocal">--:--:--</span>
+      <span class="h-clock-utc" id="clockUtc">UTC --:--:--</span>
+    </div>
+
+    <div class="h-actions">
+      <button class="icon-btn" id="btnTheme" type="button" aria-label="Cambiar tema" title="Tema (claro/oscuro)">
+        <span data-theme-icon aria-hidden="true">🌓</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Fila 2: métricas clave con POC dual, delta instantáneo y cobertura -->
+  <div class="h-row h-row-2">
+    <div class="metric">
+      <span class="metric-label">Precio</span>
+      <span class="metric-value h-price" id="priceEl">—</span>
+    </div>
+
+    <div class="metric" title="POC por volumen bruto total de la ventana">
+      <span class="metric-label">POC Vol</span>
+      <span class="metric-value poc" id="pocVolEl">—</span>
+    </div>
+
+    <div class="metric" title="POC por delta absoluto (mayor desequilibrio)">
+      <span class="metric-label">POC Δ</span>
+      <span class="metric-value poc" id="pocDeltaEl">—</span>
+    </div>
+
+    <div class="metric" title="Delta acumulado de la ventana activa">
+      <span class="metric-label" id="deltaWindowLabel">Δ 40m</span>
+      <span class="metric-value" id="deltaLongEl">0</span>
+    </div>
+
+    <div class="metric metric-instant" title="Delta de los últimos 250ms (reactivo)">
+      <span class="metric-label">
+        Δ 250ms
+        <span id="deltaInstDir" aria-hidden="false" aria-label="dirección del delta instantáneo"></span>
+      </span>
+      <span class="metric-value" id="deltaInstEl">0</span>
+    </div>
+
+    <div class="metric">
+      <span class="metric-label">Trades</span>
+      <span class="metric-value" id="tradesCountEl">0</span>
+    </div>
+
+    <div class="metric">
+      <span class="metric-label" id="volWindowLabel">Vol 40m</span>
+      <span class="metric-value" id="volumeEl">·</span>
+    </div>
+
+    <div class="metric metric-coverage" id="coverageIndicator" title="Cobertura de datos de la ventana">
+      <span class="cov-dot" aria-hidden="true">●</span>
+      <span class="cov-txt" id="coverageTxt">—</span>
+    </div>
+  </div>
+
+  <!-- Fila 3: pills de configuración activa -->
+  <div class="h-row h-row-3">
+    <button class="pill" id="pillWindow" type="button" title="Cambiar ventana temporal (G)">
+      Ventana <b id="pillWindowVal">40m</b>
+    </button>
+
+    <button class="pill" id="pillBucket" type="button" title="Cambiar tamaño de casilla (B)">
+      Casilla <b id="pillBucketVal">20$</b>
+    </button>
+
+    <!-- NUEVO: modo de imbalance configurable -->
+    <button class="pill pill-select" id="pillImbMode" type="button"
+            title="Modo de imbalance (I). Click para ciclar entre diagonal, nivel, media, percentil, compuesto"
+            aria-haspopup="listbox" aria-expanded="false">
+      Imb <b id="pillImbModeVal">diag</b>
+    </button>
+
+    <!-- NUEVO: umbral de imbalance editable con toggle auto/manual -->
+    <div class="pill pill-edit" id="pillImbThrWrap" title="Umbral de imbalance ( [ / ] ). Doble click para escribir. Botón A alterna auto/manual">
+      <span class="pill-edit-label">≥</span>
+      <input class="pill-edit-input" id="pillImbThrInput" type="number" inputmode="numeric"
+             min="100" max="5000" step="10" value="300"
+             aria-label="Umbral de imbalance en porcentaje">
+      <span class="pill-edit-suffix">%</span>
+      <button class="pill-edit-toggle" id="pillImbThrAuto" type="button"
+              aria-pressed="false" aria-label="Alternar umbral de imbalance automático">A</button>
+    </div>
+
+    <!-- NUEVO: monto mínimo editable con toggle auto/manual y relativo -->
+    <div class="pill pill-edit" id="pillMinWrap" title="Monto mínimo por lado en USD (M). Doble click para escribir. Botón A alterna auto/manual. Botón R alterna relativo al imbalance">
+      <span class="pill-edit-label">Mín $</span>
+      <input class="pill-edit-input" id="pillMinInput" type="number" inputmode="numeric"
+             min="0" step="1000" value="25000"
+             aria-label="Monto mínimo por lado en dólares">
+      <button class="pill-edit-toggle" id="pillMinAuto" type="button"
+              aria-pressed="false" aria-label="Alternar monto mínimo automático">A</button>
+      <button class="pill-edit-toggle" id="pillMinRel" type="button"
+              aria-pressed="false" aria-label="Alternar monto relativo al imbalance">R</button>
+    </div>
+
+    <button class="pill pill-toggle" id="pillHeat" type="button" title="Heatmap de delta (H)" aria-pressed="true">
+      Heat <b>✓</b>
+    </button>
+    <button class="pill pill-toggle" id="pillBars" type="button" title="Barras laterales (V)" aria-pressed="true">
+      Bars <b>✓</b>
+    </button>
+    <button class="pill pill-toggle" id="pillThermo" type="button" title="Termómetro (T)" aria-pressed="true">
+      Thermo <b>✓</b>
+    </button>
+    <button class="pill pill-toggle" id="pillLines" type="button" title="Líneas de Entrada/SL/TP (L)" aria-pressed="true">
+      Líneas <b>✓</b>
+    </button>
+    <button class="pill pill-toggle" id="pillWalls" type="button" title="Tracking de muros (W)" aria-pressed="true">
+      Muros <b>✓</b>
+    </button>
+    <button class="pill pill-toggle" id="pillSound" type="button" title="Sonido / vibración (N)" aria-pressed="false">
+      Sonido <b>✗</b>
+    </button>
+  </div>
+</header>
+
+<!-- ==========================================================================
+     MAIN — Tabs live/hist y sus paneles
+     ========================================================================== -->
+<main id="app-main">
+
+  <nav class="mode-tabs" role="tablist" aria-label="Modo de operación">
+    <button role="tab" id="tabLive" aria-selected="true" aria-controls="panelLive" data-mode="live" type="button">
+      🟢 EN VIVO
+    </button>
+    <button role="tab" id="tabHist" aria-selected="false" aria-controls="panelHist" data-mode="hist" type="button">
+      🕰 HISTÓRICO
+    </button>
+  </nav>
+
+  <!-- ==================== PANEL EN VIVO ==================== -->
+  <section id="panelLive" class="mode-panel active" role="tabpanel" aria-labelledby="tabLive">
+    <div class="layout-main">
+
+      <div class="table-wrap" id="liveTableWrap">
+        <div class="grid" id="liveGrid" role="table" aria-label="Footprint en vivo">
+          <!-- Cabecera y filas inyectadas por JS desde <template> -->
+        </div>
+        <div class="empty-state" id="liveEmpty" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Cargando datos iniciales…</p>
+        </div>
+      </div>
+
+      <!-- Termómetro de Presión Neta (3 barras: acumulada, instantánea, zona) -->
+      <aside class="thermo" id="liveThermo" aria-label="Termómetro de presión neta en vivo">
+        <div class="thermo-cap">Presión Neta</div>
+
+        <div class="thermo-track thermo-acum" role="progressbar"
+             aria-label="Delta acumulado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <div class="thermo-fill" id="thermoFillLive"></div>
+          <div class="thermo-center" aria-hidden="true"></div>
+        </div>
+        <div class="thermo-sub" id="thermoSubLive">Δ 40m</div>
+
+        <div class="thermo-track thermo-inst" role="progressbar"
+             aria-label="Delta instantáneo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <div class="thermo-fill thermo-fill-inst" id="thermoFillInstLive"></div>
+          <div class="thermo-center" aria-hidden="true"></div>
+        </div>
+        <div class="thermo-sub">Δ 250ms</div>
+
+        <!-- NUEVO: tercera barra — delta de la zona del muro dominante -->
+        <div class="thermo-track thermo-zone" id="thermoZoneLiveWrap" role="progressbar"
+             aria-label="Delta en la zona del muro dominante" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+             aria-valuetext="sin zona dominante">
+          <div class="thermo-fill thermo-fill-zone" id="thermoFillZoneLive"></div>
+          <div class="thermo-center" aria-hidden="true"></div>
+        </div>
+        <div class="thermo-sub" id="thermoZoneSubLive">Δ zona</div>
+
+        <div class="thermo-value" id="thermoValLive">0</div>
+        <div class="thermo-imb" id="thermoImbLive">—</div>
+        <div class="thermo-warn" id="thermoWarnLive" hidden>⚠ ABSORCIÓN</div>
+      </aside>
+    </div>
+
+    <!-- NUEVO: Panel de zona de manipulación -->
+    <div class="manip-panel" id="manipPanelLive" aria-live="polite" hidden>
+      <div class="manip-header">
+        <span class="manip-badge" id="manipBadgeLive">—</span>
+        <span class="manip-level" id="manipLevelLive">—</span>
+        <span class="manip-state" id="manipStateLive">—</span>
+      </div>
+      <div class="manip-metrics">
+        <span class="manip-metric">edad <b id="manipAgeLive">—</b></span>
+        <span class="manip-metric">vol <b id="manipVolLive">—</b></span>
+        <span class="manip-metric">contra/pasivo <b id="manipRatioLive">—</b></span>
+        <span class="manip-metric">penetración <b id="manipPenLive">—</b></span>
+      </div>
+    </div>
+
+    <!-- Panel de señales de trading dinámicas -->
+    <div class="signals-panel" id="signalsPanelLive" aria-live="polite" hidden>
+      <div class="signal-row">
+        <span class="signal-badge signal-entry">🎯 ENTRADA</span>
+        <span class="signal-value" id="signalEntryLive">—</span>
+        <span class="signal-side" id="signalSideLive">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-badge signal-sl">🛑 STOP LOSS</span>
+        <span class="signal-value" id="signalSLLive">—</span>
+        <span class="signal-extra" id="signalSLExtraLive"></span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-badge signal-tp">💰 TAKE PROFIT</span>
+        <span class="signal-value" id="signalTPLive">—</span>
+        <span class="signal-extra" id="signalTPExtraLive"></span>
+      </div>
+      <div class="signal-row signal-motor-row">
+        <span class="signal-motor" id="signalMotorLive">—</span>
+      </div>
+    </div>
+
+    <footer class="panel-footer">
+      <div class="f-row">
+        <button class="chip" id="btnPauseLive" type="button" title="Pausar render (P)">⏸ Pausa</button>
+        <button class="chip" id="btnClearLive" type="button" title="Limpiar datos en memoria">🧹 Limpiar</button>
+        <button class="chip" id="btnSignalLock" type="button" title="Fijar señal actual (F)">📌 Fijar señal</button>
+        <span class="spacer"></span>
+        <span class="legend">
+          🚨 imb · 🔥 stacked · 🟡 absorción · 🧱 muro estable · 💨 muro retirado · ★ POC · ▶ actual · 🎯🛑💰 líneas · [F] fijar · [ / ] umbral
+        </span>
+      </div>
+      <div class="status-line" id="statusLive" aria-live="polite">conectando…</div>
+    </footer>
+  </section>
+
+  <!-- ==================== PANEL HISTÓRICO ==================== -->
+  <section id="panelHist" class="mode-panel" role="tabpanel" aria-labelledby="tabHist" hidden>
+
+    <div class="hist-toolbar">
+      <div class="date-group">
+        <label for="dtInput" class="sr-only">Fecha y hora</label>
+        <input type="datetime-local" id="dtInput" step="1" aria-label="Fecha y hora de referencia">
+        <button class="chip" id="btnGo" type="button" title="Ir al segundo seleccionado">Ir</button>
+        <button class="chip" id="btnNow" type="button" title="Ir a ahora">Ahora</button>
+        <button class="chip" id="btnFreeze" type="button" title="Congelar tiempo" aria-pressed="false">▶ Replay</button>
+      </div>
+
+      <div class="nav-group">
+        <button class="chip" id="btnBackBig" type="button" title="-1 min">⏮ -1m</button>
+        <button class="chip" id="btnBackSmall" type="button" title="-15 s">⏪ -15s</button>
+        <button class="chip" id="btnPlay" type="button" title="Play / Pausa replay" aria-pressed="false">▶</button>
+        <button class="chip" id="btnFwdSmall" type="button" title="+15 s">⏩ +15s</button>
+        <button class="chip" id="btnFwdBig" type="button" title="+1 min">⏭ +1m</button>
+        <select id="speedSel" class="chip" aria-label="Velocidad de replay">
+          <option value="0.5">0.5×</option>
+          <option value="1">1×</option>
+          <option value="2" selected>2×</option>
+          <option value="4">4×</option>
+          <option value="8">8×</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="scrub-wrap">
+      <input type="range" id="scrub" min="0" max="100" value="100"
+             aria-label="Desplazar tiempo">
+      <div class="timeline-events" id="timelineEvents" aria-hidden="true"></div>
+    </div>
+
+    <div class="layout-main">
+
+      <div class="table-wrap" id="histTableWrap">
+        <div class="grid" id="histGrid" role="table" aria-label="Footprint histórico"></div>
+        <div class="empty-state" id="histEmpty" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p id="histEmptyTxt">Cargando…</p>
+        </div>
+      </div>
+
+      <aside class="thermo" id="histThermo" aria-label="Termómetro de presión neta histórico">
+        <div class="thermo-cap">Presión Neta</div>
+
+        <div class="thermo-track thermo-acum" role="progressbar"
+             aria-label="Delta acumulado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <div class="thermo-fill" id="thermoFillHist"></div>
+          <div class="thermo-center" aria-hidden="true"></div>
+        </div>
+        <div class="thermo-sub" id="thermoSubHist">Δ 40m</div>
+
+        <div class="thermo-track thermo-inst" role="progressbar"
+             aria-label="Delta instantáneo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <div class="thermo-fill thermo-fill-inst" id="thermoFillInstHist"></div>
+          <div class="thermo-center" aria-hidden="true"></div>
+        </div>
+        <div class="thermo-sub">Δ 250ms</div>
+
+        <div class="thermo-track thermo-zone" id="thermoZoneHistWrap" role="progressbar"
+             aria-label="Delta en la zona del muro dominante" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+             aria-valuetext="sin zona dominante">
+          <div class="thermo-fill thermo-fill-zone" id="thermoFillZoneHist"></div>
+          <div class="thermo-center" aria-hidden="true"></div>
+        </div>
+        <div class="thermo-sub" id="thermoZoneSubHist">Δ zona</div>
+
+        <div class="thermo-value" id="thermoValHist">0</div>
+        <div class="thermo-imb" id="thermoImbHist">—</div>
+        <div class="thermo-warn" id="thermoWarnHist" hidden>⚠ ABSORCIÓN</div>
+      </aside>
+    </div>
+
+    <!-- NUEVO: Panel de zona de manipulación histórico -->
+    <div class="manip-panel" id="manipPanelHist" aria-live="polite" hidden>
+      <div class="manip-header">
+        <span class="manip-badge" id="manipBadgeHist">—</span>
+        <span class="manip-level" id="manipLevelHist">—</span>
+        <span class="manip-state" id="manipStateHist">—</span>
+      </div>
+      <div class="manip-metrics">
+        <span class="manip-metric">edad <b id="manipAgeHist">—</b></span>
+        <span class="manip-metric">vol <b id="manipVolHist">—</b></span>
+        <span class="manip-metric">contra/pasivo <b id="manipRatioHist">—</b></span>
+        <span class="manip-metric">penetración <b id="manipPenHist">—</b></span>
+      </div>
+    </div>
+
+    <div class="signals-panel" id="signalsPanelHist" aria-live="polite" hidden>
+      <div class="signal-row">
+        <span class="signal-badge signal-entry">🎯 ENTRADA</span>
+        <span class="signal-value" id="signalEntryHist">—</span>
+        <span class="signal-side" id="signalSideHist">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-badge signal-sl">🛑 STOP LOSS</span>
+        <span class="signal-value" id="signalSLHist">—</span>
+        <span class="signal-extra" id="signalSLExtraHist"></span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-badge signal-tp">💰 TAKE PROFIT</span>
+        <span class="signal-value" id="signalTPHist">—</span>
+        <span class="signal-extra" id="signalTPExtraHist"></span>
+      </div>
+      <div class="signal-row signal-motor-row">
+        <span class="signal-motor" id="signalMotorHist">—</span>
+      </div>
+    </div>
+
+    <footer class="panel-footer">
+      <div class="f-row">
+        <button class="chip" id="btnWindowHist" type="button" title="Ventana temporal (G)">
+          Ventana: <b>40m</b>
+        </button>
+        <button class="chip" id="btnBucketHist" type="button" title="Casilla (B)">
+          Casilla: <b>20$</b>
+        </button>
+        <button class="chip" id="btnImbHist" type="button" title="Modo de imbalance (I)">
+          Imb: <b>diag</b>
+        </button>
+        <button class="chip" id="btnMinHist" type="button" title="Monto mínimo (M)">
+          Mín: <b>25k</b>
+        </button>
+        <button class="chip" id="btnSignalLockHist" type="button" title="Fijar señal actual (F)">
+          📌 Fijar señal
+        </button>
+        <span class="spacer"></span>
+        <span class="legend">
+          A/← −15s · D/→ +15s · S/↓ −1m · W/↑ +1m · Espacio replay · [F] fijar · [ / ] umbral
+        </span>
+      </div>
+      <div class="status-line" id="statusHist" aria-live="polite">—</div>
+    </footer>
+  </section>
+
+</main>
+
+<div id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<!-- ==========================================================================
+     TEMPLATES — Clonados por JS para construir filas sin crear strings
+     ========================================================================== -->
+
+<!-- Cabecera de la tabla del footprint (NUEVO: columna Δ nivel) -->
+<template id="tplHead">
+  <div class="row row-head" role="row">
+    <div class="gh gh-imb" role="columnheader">Imb Vta</div>
+    <div class="gh gh-sell" role="columnheader">Venta $</div>
+    <div class="gh gh-delta" role="columnheader">Δ $</div>
+    <div class="gh gh-price" role="columnheader">Precio</div>
+    <div class="gh gh-buy" role="columnheader">Compra $</div>
+    <div class="gh gh-imb" role="columnheader">Imb Cpa</div>
+    <div class="gh gh-bar" role="columnheader">Ratio</div>
+    <div class="gh gh-level" role="columnheader" title="Delta del nivel y estado del muro">Δ nivel</div>
+  </div>
+</template>
+
+<!-- Fila del footprint -->
+<template id="tplRow">
+  <div class="row" role="row" data-k="row">
+    <div class="c c-imb c-imbL" role="cell" data-k="imbL"></div>
+    <div class="c c-sell" role="cell" data-k="sell">
+      <div class="bar-side" data-k="sellBar"></div>
+      <span class="lbl" data-k="sellLbl">·</span>
+    </div>
+    <div class="c c-delta" role="cell" data-k="delta">
+      <span class="lbl" data-k="deltaLbl">0</span>
+    </div>
+    <div class="c c-price" role="cell" data-k="price"></div>
+    <div class="c c-buy" role="cell" data-k="buy">
+      <div class="bar-side" data-k="buyBar"></div>
+      <span class="lbl" data-k="buyLbl">·</span>
+    </div>
+    <div class="c c-imb c-imbR" role="cell" data-k="imbR"></div>
+    <div class="c c-bar" role="cell" data-k="bar">
+      <div class="ratio" data-k="ratio">
+        <div class="ratio-buy" data-k="ratioBuy"></div>
+        <div class="ratio-sell" data-k="ratioSell"></div>
+      </div>
+    </div>
+    <!-- NUEVO: celda de delta del nivel + estado del muro -->
+    <div class="c c-level" role="cell" data-k="level">
+      <span class="lbl" data-k="levelDelta">0</span>
+      <span class="wall-state" data-k="wallState" aria-hidden="true"></span>
+    </div>
+  </div>
+</template>
+
+<!-- NUEVO: Punto de evento en la timeline con tipo extendido -->
+<template id="tplTimelineDot">
+  <span class="tl-dot" aria-hidden="true"></span>
+</template>
+
+</body>
+</html>
